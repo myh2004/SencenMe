@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  secondmeId  String   @unique
+  accessToken String
+  name        String?
+  email       String?
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // A2A 关系
+  knowledgeNodes KnowledgeNode[]
+  collections    Collection[]
+  agentMatches   AgentMatch[]
+}
+
+model KnowledgeNode {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  summary     String?
+  tags        String
+  sourceUrl   String?
+  sourceType  String   // "zhihu_hot", "zhihu_answer", "collection"
+  userId      String
+  markdown    String?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User @relation(fields: [userId], references: [id])
+
+  // 知识图谱双向链接
+  outgoingLinks NodeLink[] @relation("SourceNode")
+  incomingLinks NodeLink[] @relation("TargetNode")
+
+  // 集合关系
+  collections   Collection[]
+}
+
+model NodeLink {
+  id          String   @id @default(cuid())
+  sourceId    String
+  targetId    String
+  linkType    String   // "related", "reference", "contradiction"
+  strength    Float    @default(0.5)
+  createdAt   DateTime @default(now())
+
+  source      KnowledgeNode @relation("SourceNode", fields: [sourceId], references: [id])
+  target      KnowledgeNode @relation("TargetNode", fields: [targetId], references: [id])
+
+  @@unique([sourceId, targetId])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  userId      String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User @relation(fields: [userId], references: [id])
+  nodes       KnowledgeNode[]
+}
+
+model AgentMatch {
+  id          String   @id @default(cuid())
+  userId      String
+  matchedUserId String
+  matchType   String   // "interest", "knowledge", "discussion"
+  score       Float
+  status      String   @default("pending") // "pending", "accepted", "declined"
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  user        User @relation(fields: [userId], references: [id])
+}
